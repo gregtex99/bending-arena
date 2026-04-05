@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bending Arena">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Bending Arena</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #1a1a2e;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      /* iOS safe areas */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    #loading {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #1a1a2e;
+      z-index: 1000;
+      transition: opacity 0.5s;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading h1 {
+      color: #e94560;
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.1em;
+    }
+    #loading p {
+      color: #aaa;
+      font-size: 1rem;
+      margin-bottom: 2rem;
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #16213e;
+      border-top-color: #e94560;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading .status {
+      color: #666;
+      font-size: 0.85rem;
+      margin-top: 1.5rem;
+    }
+    #game-container {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+    }
+    #game-container iframe {
+      width: 100%; height: 100%;
+      border: none;
+      display: block;
+    }
+    #error {
+      display: none;
+      position: fixed; inset: 0;
+      background: #1a1a2e;
+      color: #e94560;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      z-index: 2000;
+    }
+    #error h2 { margin-bottom: 1rem; }
+    #error p { color: #aaa; margin-bottom: 1.5rem; max-width: 400px; }
+    #error button {
+      background: #e94560; color: white;
+      border: none; padding: 12px 24px;
+      border-radius: 8px; font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h1>BENDING ARENA</h1>
+    <p>by Foster</p>
+    <div class="spinner"></div>
+    <div class="status" id="status">Loading game engine...</div>
+  </div>
+
+  <div id="game-container"></div>
+
+  <div id="error">
+    <h2>Failed to Load</h2>
+    <p id="error-msg">Could not load the game. Please check your connection and try again.</p>
+    <button onclick="location.reload()">Retry</button>
+  </div>
+
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    const SB3_FILE = 'Bending_Arena_v1.13.sb3';
+    const statusEl = document.getElementById('status');
+    const loadingEl = document.getElementById('loading');
+    const containerEl = document.getElementById('game-container');
+    const errorEl = document.getElementById('error');
+    const errorMsgEl = document.getElementById('error-msg');
+
+    function showError(msg) {
+      errorMsgEl.textContent = msg;
+      errorEl.style.display = 'flex';
+      loadingEl.classList.add('hidden');
+    }
+
+    function startGame() {
+      statusEl.textContent = 'Starting game...';
+
+      // Build the TurboWarp embed URL with our hosted .sb3
+      const sb3Url = new URL(SB3_FILE, window.location.href).href;
+      const embedUrl = 'https://turbowarp.org/embed?project_url=' + encodeURIComponent(sb3Url);
+
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.setAttribute('allow', 'autoplay; fullscreen; gamepad');
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
+      iframe.src = embedUrl;
+
+      // Hide loading screen once iframe loads
+      iframe.addEventListener('load', () => {
+        setTimeout(() => {
+          loadingEl.classList.add('hidden');
+        }, 1500); // Give the engine a moment to initialize inside the iframe
+      });
+
+      // Timeout fallback: hide loading after 15s regardless
+      setTimeout(() => {
+        loadingEl.classList.add('hidden');
+      }, 15000);
+
+      containerEl.appendChild(iframe);
+    }
+
+    // Verify the .sb3 exists, then load
+    statusEl.textContent = 'Checking game file...';
+    fetch(SB3_FILE, { method: 'HEAD' })
+      .then(res => {
+        if (!res.ok) throw new Error('Game file not found');
+        statusEl.textContent = 'Loading TurboWarp engine...';
+        startGame();
+      })
+      .catch(err => {
+        showError('Could not find game file: ' + err.message);
+      });
+  </script>
+</body>
+</html>
